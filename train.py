@@ -13,18 +13,31 @@ from deap import creator
 from deap import tools
 from deap import gp
 
+# Función división protegida
+def protectedDiv(left, right):
+    if right == 0:
+        return 1
+    else:
+        return left / right
+
+def potencia(n):
+    return n ** 2
+
 data = np.loadtxt('final.txt')
 
 pset= gp.PrimitiveSet("main", 2)  # main es el nombre de la funcion y 2 las entradas
 
 #aca creamos los operandos a usar
 
-pset.addPrimitive( operator.add, 2)
-pset.addPrimitive( operator.sub, 2)
-pset.addPrimitive( operator.mul, 2)
+pset.addPrimitive(operator.add, 2)
+pset.addPrimitive(operator.sub, 2)
+pset.addPrimitive(operator.mul, 2)
 #agregar div con cuidado de evitar division por cero
-pset.addPrimitive( operator.neg, 1)
-
+pset.addPrimitive(operator.neg, 1)
+pset.addPrimitive(protectedDiv, 2)
+pset.addPrimitive(potencia, 1)
+pset.addPrimitive(math.sin, 1)
+pset.addPrimitive(math.cos, 1)
 
 #aca creamos las variables a usar
 pset.renameArguments(ARG0="x")
@@ -92,12 +105,14 @@ def main():
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 200, stats,
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 1000, stats,
                                    halloffame=hof, verbose=True)
 
     return pop, log, hof
 
-x=main()
+x = main()
+
+print(x[2][0])
 
 poblacion = x[0]
 history = x[1]
@@ -105,7 +120,14 @@ best = x[2][0]
 
 #arbol=gp.PrimitiveTree(x[1])
 print("===========")
-print(x[1])
+ejeX = np.linspace(0, 5, 6)
+ejeY = []
+for i in x[1]:
+    ejeY.append(i['min'])
+
+fig = plt.figure(figsize=(12,7))
+plt.plot(ejeX, ejeY)
+plt.show()
 
 funct = toolbox.compile(best)
 
@@ -137,3 +159,22 @@ ax.plot_surface(x1, y1, resultados, cstride=1, rstride=1)
 
 # Mostramos el gráfico
 plt.show()
+
+f = open("Datos/evolution.txt", "w")
+
+for i in range(len(ejeX)):
+    f.write(str(ejeX[i]) + " ")
+    f.write(str(ejeY[i]) + "\n")
+
+f.close()
+
+f = open("Datos/superficie.txt", "w")
+
+for i in range(len(x1)):
+    for j in range(len(x1[i])):
+        f.write(str(x1[i][j]) + " ")
+        f.write(str(y1[i][j]) + " ")
+        f.write(str(resultados[i][j]) + "\n")
+    f.write("\n")
+
+f.close()

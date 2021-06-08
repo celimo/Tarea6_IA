@@ -101,6 +101,14 @@ ax.plot_surface(x1, y1, resultados, cstride=1, rstride=1)
 # Mostramos el gráfico
 plt.show()
 
+f = open("supSinRuido.txt", "w")
+
+for i in range(len(x1)):
+    for j in range(len(x1[i])):
+        f.write(str(x1[i][j]) + " ")
+        f.write(str(y1[i][j]) + " ")
+        f.write(str(resultados[i][j]) + "\n")
+    f.write("\n")
 
 for i in range(len(resultados)):
     for j in range(len(resultados[i])):
@@ -138,3 +146,12 @@ print(len(lista))
 print(lista)
 
 np.savetxt('datos.txt', lista)
+
+f = open("supTeorica.txt", "w")
+
+for i in range(len(x1)):
+    for j in range(len(x1[i])):
+        f.write(str(x1[i][j]) + " ")
+        f.write(str(y1[i][j]) + " ")
+        f.write(str(resultados[i][j]) + "\n")
+    f.write("\n")
