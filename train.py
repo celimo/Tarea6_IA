@@ -2,6 +2,7 @@ import operator
 import math
 import random
 import operator
+import pygraphviz as pgv
 
 import numpy as np
 from mpl_toolkits.mplot3d import axes3d
@@ -13,6 +14,8 @@ from deap import creator
 from deap import tools
 from deap import gp
 
+data = np.loadtxt('final.txt')
+
 # Función división protegida
 def protectedDiv(left, right):
     if right == 0:
@@ -20,7 +23,7 @@ def protectedDiv(left, right):
     else:
         return left / right
 
-def potencia(n):
+def potencia2(n):
     return n ** 2
 
 data = np.loadtxt('final.txt')
@@ -35,7 +38,7 @@ pset.addPrimitive(operator.mul, 2)
 #agregar div con cuidado de evitar division por cero
 pset.addPrimitive(operator.neg, 1)
 pset.addPrimitive(protectedDiv, 2)
-pset.addPrimitive(potencia, 1)
+#pset.addPrimitive(potencia2, 1)
 pset.addPrimitive(math.sin, 1)
 pset.addPrimitive(math.cos, 1)
 
@@ -59,7 +62,6 @@ tree = gp.PrimitiveTree(expr)
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin,
                pset=pset)
-
 
 toolbox = base.Toolbox()
 toolbox.register("expr", gp.genFull, pset=pset, min_=1, max_=5)
@@ -88,7 +90,7 @@ def evalSymbReg(individual):
     return sqerrors,
 
 toolbox.register("evaluate", evalSymbReg)
-toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("select", tools.selTournament, tournsize=60)
 toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
 toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
@@ -98,31 +100,34 @@ toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max
 
 def main():
     pop = toolbox.population(n=300)
-    hof = tools.HallOfFame(1)
+    hof = tools.HallOfFame(3)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.1, 1000, stats,
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.7, 0.3, 200, stats,
                                    halloffame=hof, verbose=True)
 
     return pop, log, hof
 
-x = main()
-
-print(x[2][0])
+x = main2(pobTemp)
 
 poblacion = x[0]
 history = x[1]
 best = x[2][0]
 
+print(best)
+
 #arbol=gp.PrimitiveTree(x[1])
 print("===========")
-ejeX = np.linspace(0, 5, 6)
+ejeX = []
+for i in range(len(history)):
+    ejeX.append(i)
+
 ejeY = []
-for i in x[1]:
+for i in history:
     ejeY.append(i['min'])
 
 fig = plt.figure(figsize=(12,7))
@@ -131,16 +136,16 @@ plt.show()
 
 funct = toolbox.compile(best)
 
-x = np.linspace(0, 49, 50)
-y = np.linspace(0, 39, 40)
+xx = np.linspace(0, 49, 50)
+yy = np.linspace(0, 39, 40)
 
-x1, y1 = np.meshgrid(x, y)
+x1, y1 = np.meshgrid(xx, yy)
 
 resultados = []
 for i in range(len(x1)):
     temp = []
     for j in range(len(y1[i])):
-        temp.append(funct(x1[i][j], y1[i][j]))
+        temp.append(funct(50 - x1[i][j], y1[i][j]))
 
     resultados.append(temp)
 
@@ -156,6 +161,7 @@ ax.set_zlabel("f(x, y)")
 
 # Agregamos los puntos en el plano 3D
 ax.plot_surface(x1, y1, resultados, cstride=1, rstride=1)
+ax.view_init(30,60)
 
 # Mostramos el gráfico
 plt.show()
@@ -178,3 +184,31 @@ for i in range(len(x1)):
     f.write("\n")
 
 f.close()
+
+nodes, edges, labels = gp.graph(best)
+
+# Recortar la cantidad de decimales en números del labels
+def isfloat(letra):
+    try:
+        float(letra)
+        return True
+    except ValueError:
+        return False
+
+for i in range(len(labels)):
+  if isfloat(str(labels[i])):
+    numTemp = round(labels[i], 3)
+    labels[i] = numTemp
+
+### Graphviz Section ###
+
+g = pgv.AGraph()
+g.add_nodes_from(nodes)
+g.add_edges_from(edges)
+g.layout(prog="dot")
+
+for i in nodes:
+    n = g.get_node(i)
+    n.attr["label"] = labels[i]
+
+g.draw("tree.png")
