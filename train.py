@@ -1,3 +1,4 @@
+#librerias necesarias para el funcionamiento del codigo 
 import operator
 import math
 import random
@@ -14,9 +15,13 @@ from deap import creator
 from deap import tools
 from deap import gp
 
+
+#se cargan los datos (los cuales son los x,y,tag)
 data = np.loadtxt('final.txt')
 
-# Función división protegida
+
+
+# Función división protegida ya que no se debe divir entre 0
 def protectedDiv(left, right):
     if right == 0:
         return 1
@@ -26,32 +31,34 @@ def protectedDiv(left, right):
 def potencia2(n):
     return n ** 2
 
-data = np.loadtxt('final.txt')
+
+
 
 pset= gp.PrimitiveSet("main", 2)  # main es el nombre de la funcion y 2 las entradas
 
+
+
 #aca creamos los operandos a usar
-
-pset.addPrimitive(operator.add, 2)
-pset.addPrimitive(operator.sub, 2)
-pset.addPrimitive(operator.mul, 2)
-#agregar div con cuidado de evitar division por cero
-pset.addPrimitive(operator.neg, 1)
-pset.addPrimitive(protectedDiv, 2)
+pset.addPrimitive(operator.add, 2)  #suma
+pset.addPrimitive(operator.sub, 2)  #resta
+pset.addPrimitive(operator.mul, 2)  #multiplicacion
+pset.addPrimitive(operator.neg, 1)  #negacion
+pset.addPrimitive(protectedDiv, 2)  #division en caso de ser por cero da 1
 #pset.addPrimitive(potencia2, 1)
-pset.addPrimitive(math.sin, 1)
-pset.addPrimitive(math.cos, 1)
+pset.addPrimitive(math.sin, 1)      #seno
+pset.addPrimitive(math.cos, 1)      #coseno
 
-#aca creamos las variables a usar
+#aca le cambiamos el nombre a las variables que vamos a usar
 pset.renameArguments(ARG0="x")
 pset.renameArguments(ARG1="y")
 
 
 #aca creamos las constantes a usar
 #pset.addTerminal(3)                                           #agrega un 3
-pset.addEphemeralConstant("rand101", lambda: random.uniform(-10, 10))    #agrega un valor de -10a10
+pset.addEphemeralConstant("rand101", lambda: random.uniform(-10, 10))    #agrega un valor al azar de -10a10
 
-# aca se crean los arboles
+
+# aca se crean los arboles donde
 #genGrow():Generate an expression where each leaf might have a different depth between min and max.
 #genFull():Generate an expression where each leaf has the same depth between min and max.
 #genHalfAndHalf():Generate an expression with a PrimitiveSet pset. Half the time, the expression is generated with genGrow(), the other half, the expression is generated with genFull().
@@ -59,68 +66,83 @@ pset.addEphemeralConstant("rand101", lambda: random.uniform(-10, 10))    #agrega
 expr = gp.genGrow(pset, min_=1, max_=5)    # la altura de los arboles varia de 1 a 5
 tree = gp.PrimitiveTree(expr)
 
-creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+
+creator.create("FitnessMin", base.Fitness, weights=(-1.0,))   #como se va usar el error cuadratico medio se busca minimizar
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin,
                pset=pset)
 
+
+
+# se crea el toolbox donde se inlcuyen todas las partes del GP
 toolbox = base.Toolbox()
-toolbox.register("expr", gp.genFull, pset=pset, min_=1, max_=5)
-toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-toolbox.register("compile", gp.compile, pset=pset)
+toolbox.register("expr", gp.genFull, pset=pset, min_=1, max_=5)                         #se agrega la configuracion del arbol
+toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)     #se agrega el individuo 
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)              #se agrega la poblacion 
+toolbox.register("compile", gp.compile, pset=pset)                                      #se compila el modelo 
 
-#funcion que evalua a los individuos
 
-#datos contiene x,y, puntuacion
-#dx=x
-#dy=y
-#tag=puntuacion
+
+
+
+
+#funcion que evalua a los individuos 
 
 def evalSymbReg(individual):
-    # Transform the tree expression in a callable function
-    #Transforma el arbol en una expresion calculable
 
-    func = toolbox.compile(expr=individual)
-    sqerrors = 0
-    for i in range(len(data)):
+    func = toolbox.compile(expr=individual)                              #crea la funcion a partir del un individuo de la poblacion 
+    sqerrors = 0 
+    for i in range(len(data)):                                           #prueba todos los puntos con la funcion y establece su error
         sqerrors += (func(data[i][0],data[i][1]) - data[i][2]) ** 2
 
     sqerrors /= len(data)
 
-    return sqerrors,
+    return sqerrors,                                                      #retorna una tupla
 
-toolbox.register("evaluate", evalSymbReg)
-toolbox.register("select", tools.selTournament, tournsize=60)
-toolbox.register("mate", gp.cxOnePoint)
-toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
-toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+
+
+
+toolbox.register("evaluate", evalSymbReg)                                                      #se agrega la funcion objetivo al modelo 
+toolbox.register("select", tools.selTournament, tournsize=60)                                  #se agrega el tipo de torneo y cantidad al modelo
+toolbox.register("mate", gp.cxOnePoint)                                                        #se agrega el tipo de recombinacion al modelo
+toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)                                       #se agrega la mutacion local 
+toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)                    #se agrega la mutacion global
 
 toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
+
+
+
+
+#se define la funcion principal 
 def main():
-    pop = toolbox.population(n=300)
-    hof = tools.HallOfFame(3)
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    pop = toolbox.population(n=300)                             #se le indica una poblacion de 300
+    hof = tools.HallOfFame(3)                                   #se gaurdan los mejores tres individuos 
+    stats = tools.Statistics(lambda ind: ind.fitness.values)    #se activan las estadisticas 
     stats.register("avg", np.mean)
     stats.register("std", np.std)
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.7, 0.3, 200, stats,
-                                   halloffame=hof, verbose=True)
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.7, 0.3, 200, stats,      #se aplica el algoritmo segun la configuraciones anteriores
+                                   halloffame=hof, verbose=True)            # donde el 0.7 la probalidad de recombinacion, 0.3 la mutacion global y 200 las generaciones 
 
     return pop, log, hof
 
-x = main2(pobTemp)
+x = main2(pobTemp)  #se llama la funcion
+
+
 
 poblacion = x[0]
 history = x[1]
 best = x[2][0]
+print(best)   #se extraen las variables del mejor individuo 
 
-print(best)
+
+
 
 #arbol=gp.PrimitiveTree(x[1])
+#funcion para imprimir la superficie generada por el mejor individuo 
 print("===========")
 ejeX = []
 for i in range(len(history)):
@@ -201,7 +223,7 @@ for i in range(len(labels)):
     labels[i] = numTemp
 
 ### Graphviz Section ###
-
+#funcion para imprimir el arbol del mejor individuo 
 g = pgv.AGraph()
 g.add_nodes_from(nodes)
 g.add_edges_from(edges)
