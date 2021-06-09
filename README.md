@@ -1,1 +1,1 @@
-# Tarea6_IA
+# Tarea 6: Programación genética
